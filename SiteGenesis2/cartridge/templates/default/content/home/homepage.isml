@@ -1,7 +1,9 @@
 <iscache type="relative" hour="24"/>
 <isdecorate template="content/home/pt_storefront">
 
-<iscomment>this is the template rendering the homepage</iscomment>
+<iscomment>this is the template rendering the homepage
+Added Extra line to test commit
+</iscomment>
 <!-- +1.888.553.9216 --><!--This phone is a requirement to support existing Gomez monitor of SiteGenesis. Demadware customers can remove this.-->
 	<div id="oc"></div>
 	<div>
