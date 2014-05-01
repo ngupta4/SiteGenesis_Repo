@@ -1,0 +1,175 @@
+<isdecorate template="checkout/pt_checkout">
+<isinclude template="util/modules"/>
+
+<iscomment>
+	This template visualizes the second step of the multi shipping checkout
+	scenario. It renders a list of all shipments (created by distinct shipping
+	addresses) and provides a shipping method selection per shipment.
+</iscomment>
+
+<iscomment>Report this checkout step</iscomment>
+<isreportcheckout checkoutstep="${3}" checkoutname="${'ShippingMethod'}"/>
+
+<iscomment>the url to edit shipping addresses depends on the checkout scenario</iscomment>
+<isset name="editUrl" value="${URLUtils.https('COShippingMultiple-Start')}" scope="page"/>
+
+<div class="checkout">
+    <iscomment>checkout progress indicator</iscomment>
+    <ischeckoutprogressindicator step="2" multishipping="true"/>
+
+	<form action="${URLUtils.continueURL()}" method="post">
+	    <iscomment>list all shipments</iscomment>
+		<isloop items="${pdict.CurrentForms.multishipping.shippingOptions.shipments}" var="shipmentItem" status="shipmentloop">
+			<isset name="shipment" value="${shipmentItem.object}" scope="page"/>
+			<div class="checkoutmultishipping <isif condition="${shipmentloop.first}"> first <iselseif condition="${shipmentloop.last}"> last</isif>">
+			<h2>${Resource.msg('multishippingshipments.shipment','checkout',null)} ${'#' + shipmentloop.count}</h2>
+			<div class="shippingmethods">
+				<iscomment>render shipping method selection based on type of shipment (physical or gift certificate)</iscomment>
+				<isif condition="${shipment.giftCertificateLineItems.size() > 0 && shipment.shippingAddress == null}">
+					${Resource.msg('multishippingshipments.gcshipment','checkout',null)}
+				<iselse/>
+					
+					<iscomment>shipping promotions for this shipment</iscomment>
+					<div class="shippingpromotions">
+						<isif condition="${shipment.shippingPriceAdjustments.size() > 0}">
+							<isloop items="${shipment.shippingPriceAdjustments}" var="shippingPA">
+								<isset name="shippingPromotion" value="${shippingPA.promotion}" scope="page"/>
+								<isif condition="${shippingPromotion != null}">
+									<div>
+										<isprint value="${Resource.msg('shipment.qualifiesfor','checkout',null)}"/> <isprint value="${shippingPromotion.calloutMsg}"/>
+									</div>
+								</isif>
+							</isloop>
+						</isif>
+					</div>
+					
+					<iscomment>get the shipping model for the shipment, which is used to calculate the shipping costs</iscomment>
+					<isscript>
+						var shippingModel : dw.order.ShipmentShippingModel = dw.order.ShippingMgr.getShipmentShippingModel( shipment );
+					</isscript>
+					${Resource.msg('multishippingshipments.selectmethod','checkout',null)}
+					<select name="${shipmentItem.shippingMethodID.htmlName}" data-shipmentUUID="${shipment.UUID}">
+						<isloop items="${shipmentItem.shippingMethodID.options}" var="option">
+							<isset name="shippingMethod" value="${option.object}" scope="page"/>
+							<option value="${shippingMethod.ID}" <isif condition="${option.selected}">selected="selected"</isif>><isprint value="${shippingMethod.displayName}"/>: <isprint value="${shippingModel.getShippingCost(shippingMethod).getAmount()}"/> (<isprint value="${shippingMethod.description}"/>)</option>
+						</isloop>
+					</select>					
+				</isif>
+			</div>
+			<table class="multishipshipmentstable">
+				<thead>
+					<tr>
+						<th>${Resource.msg('global.product','locale',null)}</th>
+						<th>${Resource.msg('global.quantity','locale',null)}</th>
+						<th>${Resource.msg('multishippingshipments.shippingdetails','checkout',null)}</th>
+					</tr>
+				</thead>
+
+				<tbody>
+					<iscomment>Shipment containing product line items</iscomment>
+					<isloop items="${shipment.productLineItems}" var="productLI" status="pliLoopstatus">
+						<tr>
+							<td>
+								<isprint value="${productLI.lineItemText}"/>
+								
+								<isif condition="${productLI.product != null && productLI.product.isVariant()}">
+									- 
+									<isloop items="${productLI.product.variationModel.getProductVariationAttributes()}" var="varAttr" status="vaLoopstatus">
+										<isset name="selectedVarValue" value="${productLI.product.variationModel.getSelectedValue(varAttr)}" scope="page"/>
+										<isprint value="${varAttr.displayName}"/>:
+										<isif condition="${selectedVarValue != null}"><isprint value="${selectedVarValue.displayValue}"/><iselse/> - </isif><isif condition="${!vaLoopstatus.last}">, </isif>
+									</isloop>
+								</isif>
+							</td>
+							<td><isprint value="${productLI.quantity}"/></td>
+							<isif condition="${pliLoopstatus.first}">
+								<isset name="rowspan" value="${shipment.productLineItems.size() + 1}" scope="page"/>
+								<td rowspan="${rowspan.toFixed()}">
+									<div class="address">							
+										<div class="header">
+											<a href="${editUrl}">${Resource.msg('global.edit','locale',null)}</a>
+											${Resource.msg('minishipments.shippingaddress','checkout',null)}
+										</div>
+							
+										<div class="details">
+											<isif condition="${shipment.shippingAddress != null}"/>
+												<isset name="address" value="${shipment.shippingAddress}" scope="page">
+												<div><isprint value="${address.firstName}"/> <isprint value="${address.lastName}"/></div>
+												<div><isprint value="${address.address1}"/></div>
+												<isif condition="${!empty(address.address2)}">
+													<div><isprint value="${address.address2}"/></div>
+												</isif>
+												<div><isprint value="${address.city}"/>, <isprint value="${address.stateCode}"/> <isprint value="${address.postalCode}"/></div>
+												<div><isprint value="${address.countryCode}"/></div>
+											</isif>
+										</div>
+									</div>
+								</td>
+							</isif>
+						</tr>
+					</isloop>
+					
+					<iscomment>Shipment gift options</iscomment>
+					<isif condition="${shipment.productLineItems.size() > 0}">
+						<tr>
+							<td colspan="2" class="giftoptions">
+								<div class="formfield giftmessage">
+									<label for="isgiftyes${shipmentItem.itemIndex}">${Resource.msg(pdict.CurrentForms.singleshipping.shippingAddress.isGift.label,'forms',null)}:</label>
+						    		<div class="value clearfix">
+						    			<input class="isgiftyes" type="radio" name="${shipmentItem.isGift.htmlName}" id="isgiftyes${shipmentItem.itemIndex}" value="true" <isif condition="${shipmentItem.isGift.value}">checked="checked"</isif> /> <label for="isgiftyes${shipmentItem.itemIndex}">Yes</label>
+						    			<input class="isgiftno" type="radio" name="${shipmentItem.isGift.htmlName}" id="isgiftno${shipmentItem.itemIndex}" value="false" <isif condition="${!shipmentItem.isGift.value}">checked="checked"</isif> /> <label for="isgiftno${shipmentItem.itemIndex}">No</label>
+						    		</div><!-- END: value -->
+							    	
+							    </div><!-- END: giftmessage -->
+					    		<div class="giftmessagetext clearfix">
+							    	<isinputfield formfield="${shipmentItem.giftMessage}" type="textarea" value="false"/>
+							    	<isinputfield formfield="${shipmentItem.giftMessage}" type="textarea" label="false" attribute1="rows" value1="4" attribute2="cols" value2="10" attribute3="data-character-limit" value3="250"/>
+							    	
+							    </div><!-- END: giftmessagetext -->
+							</td>
+						</tr>
+					</isif>
+
+					<iscomment>Shipment containing gift certificate line items</iscomment>
+					<isloop items="${shipment.giftCertificateLineItems}" var="giftCertLI" status="loopstatus">
+						<tr>
+							<td>${Resource.msg('global.giftcertificate','locale',null)} - <isprint value="${giftCertLI.price}"/></td>
+							<td>1</td>
+							<isif condition="${loopstatus.first}">
+								<isset name="rowspan" value="${shipment.giftCertificateLineItems.size()*2}" scope="page"/>
+								<td rowspan="${rowspan.toFixed()}">
+									<div class="address">
+										<div class="header">
+											${Resource.msg('minishipments.shippingaddress','checkout',null)}
+										</div>
+										<div class="details">
+											<div><isprint value="${giftCertLI.recipientName}"/></div>
+											<div>(<ismask p_string="${giftCertLI.recipientEmail}" p_maskchars="${6}"/>)</div>
+											<div>${Resource.msg('multishippingshipments.gcshipment','checkout',null)}</div>
+											<div>${Resource.msg('multishippingshipments.shipimmediante','checkout',null)}</div>
+										</div>
+									</div>
+								</tr>
+							</isif>
+						</tr>
+						<tr>
+							<td colspan="2">
+								${Resource.msg('multishippingshipments.giftmessage','checkout',null)} <isprint value="${giftCertLI.message}"/>
+							</td>
+						<tr>
+					</isloop>
+				</tbody>
+			</table>
+			</div>
+		</isloop>
+
+		<div class="formactions">
+			<div class="continuecheckoutbutton">
+				<button class="checkoutbutton" type="submit" name="${pdict.CurrentForms.multishipping.shippingOptions.save.htmlName}" value="${Resource.msg('global.continuecheckout','locale',null)}"><span>${Resource.msg('global.continuecheckout','locale',null)}</span></button>
+			</div><!-- END: continuecheckoutbutton -->
+		</div><!-- END: continuecheckout -->
+	</form>
+</div> <!-- end checkout div -->
+
+
+</isdecorate>
